@@ -1,0 +1,611 @@
+import random
+import json
+from datetime import datetime
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+from PIL import Image, ImageTk
+import os
+
+class MagicBallApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🎱 Магический Шар Предсказаний")
+        self.root.geometry("700x600")
+        self.root.configure(bg='#2c3e50')
+        
+        # Инициализация данных
+        self.standard_responses = [
+            "Бесспорно",
+            "Предрешено",
+            "Никаких сомнений",
+            "Определённо да",
+            "Можешь быть уверен в этом",
+            "Мне кажется — «да»",
+            "Вероятнее всего",
+            "Хорошие перспективы",
+            "Знаки говорят — «да»",
+            "Да",
+            "Пока не ясно, попробуй снова",
+            "Спроси позже",
+            "Лучше не рассказывать",
+            "Сейчас нельзя предсказать",
+            "Сконцентрируйся и спроси опять",
+            "Даже не думай",
+            "Мой ответ — «нет»",
+            "По моим данным — «нет»",
+            "Перспективы не очень хорошие",
+            "Весьма сомнительно"
+        ]
+        
+        self.funny_responses = [
+            "Спроси у Гугла",
+            "ИИ пока думает над ответом",
+            "404 - Ответ где-то там",
+            "Может быть, а может и нет",
+            "Проверь интуицию",
+            "Ответ где-то посередине",
+            "Вселенная говорит: 'Жди'",
+            "50 на 50",
+            "Если бы я знал, был бы богат",
+            "Истина рядом, но не видна",
+            "Батарейка почти села",
+            "Система в раздумьях",
+            "Проверяю базу данных",
+            "Нужно подумать...",
+            "Перезагрузись и попробуй",
+            "Мой хомяк ещё бегает в колесе",
+            "Кот спит и не ответит",
+            "Птицы уже улетели",
+            "Рыбы молчат в аквариуме",
+            "Ветер пока не принёс ответ",
+            "Пока чай не допил",
+            "Пицца еще не доелась",
+            "Кофе слишком горячий",
+            "Печенье крошится от вопроса",
+            "Суп остывает, думаю",
+            "Йода медитирует",
+            "Хаус ищет ответ в учебнике",
+            "Шерлок расследует",
+            "Доктор Кто в пути",
+            "Дарт Вейдер согласен",
+            "Спроси у зеркала",
+            "Инопланетяне в отпуске",
+            "Мороженое знает, но молчит",
+            "Возможно, но не факт",
+            "Луна улыбается в ответ"
+        ]
+        
+        self.poetic_responses = [
+            "Утро вечера мудренее",
+            "Семь раз отмерь",
+            "Ветер знает, но не скажет",
+            "Как лист на ветру",
+            "Судьба пишет письма",
+            "В капле дождя ответ",
+            "Время покажет путь",
+            "Сердце подскажет",
+            "Мечты сбудутся скоро",
+            "Завтра принесёт ответ"
+        ]
+        
+        self.modes = {
+            "standard": "Стандартные ответы",
+            "funny": "Шуточные ответы",
+            "poetic": "Поэтические",
+            "mix": "Смешанный режим"
+        }
+        
+        self.current_mode = "standard"
+        self.history = []
+        self.load_history()
+        
+        # Создание интерфейса
+        self.create_widgets()
+        
+    def create_widgets(self):
+        # Стиль
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Основные цвета
+        bg_color = '#2c3e50'
+        fg_color = '#ecf0f1'
+        accent_color = '#3498db'
+        
+        # Главный фрейм
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Заголовок
+        title_label = tk.Label(
+            main_frame,
+            text="🎱 МАГИЧЕСКИЙ ШАР ПРЕДСКАЗАНИЙ",
+            font=("Arial", 20, "bold"),
+            bg=bg_color,
+            fg=accent_color
+        )
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        
+        # Ввод вопроса
+        tk.Label(
+            main_frame,
+            text="Задайте ваш вопрос:",
+            font=("Arial", 12),
+            bg=bg_color,
+            fg=fg_color
+        ).grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        
+        self.question_entry = tk.Entry(
+            main_frame,
+            width=50,
+            font=("Arial", 11),
+            bg='#34495e',
+            fg=fg_color,
+            insertbackground=fg_color
+        )
+        self.question_entry.grid(row=2, column=0, columnspan=2, pady=(0, 10), sticky=(tk.W, tk.E))
+        self.question_entry.bind('<Return>', lambda e: self.get_answer())
+        
+        # Кнопка спросить
+        self.ask_button = tk.Button(
+            main_frame,
+            text="🎱 СПРОСИТЬ ШАР",
+            command=self.get_answer,
+            bg=accent_color,
+            fg='white',
+            font=("Arial", 11, "bold"),
+            padx=20,
+            pady=10,
+            relief=tk.RAISED,
+            borderwidth=3
+        )
+        self.ask_button.grid(row=2, column=2, padx=(10, 0))
+        
+        # Область ответа
+        answer_frame = tk.Frame(main_frame, bg=bg_color)
+        answer_frame.grid(row=3, column=0, columnspan=3, pady=(20, 10), sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        tk.Label(
+            answer_frame,
+            text="Ответ магического шара:",
+            font=("Arial", 12),
+            bg=bg_color,
+            fg=fg_color
+        ).grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        
+        self.answer_text = tk.Text(
+            answer_frame,
+            height=4,
+            width=60,
+            font=("Arial", 12, "bold"),
+            bg='#1a252f',
+            fg='#2ecc71',
+            wrap=tk.WORD,
+            relief=tk.SUNKEN,
+            borderwidth=2
+        )
+        self.answer_text.grid(row=1, column=0, pady=(0, 10))
+        self.answer_text.config(state=tk.DISABLED)
+        
+        # Режимы работы
+        tk.Label(
+            main_frame,
+            text="Выберите режим ответов:",
+            font=("Arial", 12),
+            bg=bg_color,
+            fg=fg_color
+        ).grid(row=4, column=0, sticky=tk.W, pady=(10, 5))
+        
+        mode_frame = tk.Frame(main_frame, bg=bg_color)
+        mode_frame.grid(row=5, column=0, columnspan=3, pady=(0, 20), sticky=(tk.W, tk.E))
+        
+        self.mode_var = tk.StringVar(value="standard")
+        
+        for i, (mode_key, mode_name) in enumerate(self.modes.items()):
+            rb = tk.Radiobutton(
+                mode_frame,
+                text=mode_name,
+                variable=self.mode_var,
+                value=mode_key,
+                command=self.change_mode,
+                bg=bg_color,
+                fg=fg_color,
+                selectcolor=bg_color,
+                font=("Arial", 10),
+                activebackground=bg_color,
+                activeforeground=accent_color
+            )
+            rb.grid(row=0, column=i, padx=10)
+        
+        # История и статистика
+        button_frame = tk.Frame(main_frame, bg=bg_color)
+        button_frame.grid(row=6, column=0, columnspan=3, pady=(10, 20))
+        
+        buttons = [
+            ("📜 История", self.show_history),
+            ("📊 Статистика", self.show_statistics),
+            ("🗑️ Очистить историю", self.clear_history),
+            ("❓ О программе", self.show_about)
+        ]
+        
+        for i, (text, command) in enumerate(buttons):
+            btn = tk.Button(
+                button_frame,
+                text=text,
+                command=command,
+                bg='#34495e',
+                fg=fg_color,
+                font=("Arial", 10),
+                padx=15,
+                pady=8,
+                relief=tk.RAISED
+            )
+            btn.grid(row=0, column=i, padx=5)
+        
+        # История вопросов (текстовое поле)
+        tk.Label(
+            main_frame,
+            text="История вопросов:",
+            font=("Arial", 12),
+            bg=bg_color,
+            fg=fg_color
+        ).grid(row=7, column=0, sticky=tk.W, pady=(10, 5))
+        
+        self.history_text = scrolledtext.ScrolledText(
+            main_frame,
+            height=8,
+            width=70,
+            font=("Arial", 9),
+            bg='#34495e',
+            fg=fg_color,
+            wrap=tk.WORD
+        )
+        self.history_text.grid(row=8, column=0, columnspan=3, pady=(0, 10))
+        self.history_text.config(state=tk.DISABLED)
+        
+        # Статус бар
+        self.status_var = tk.StringVar(value="Готов к работе!")
+        status_bar = tk.Label(
+            self.root,
+            textvariable=self.status_var,
+            bd=1,
+            relief=tk.SUNKEN,
+            anchor=tk.W,
+            bg='#34495e',
+            fg=fg_color,
+            font=("Arial", 9)
+        )
+        status_bar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Настройка весов строк и столбцов
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+    
+    def change_mode(self):
+        """Изменение режима работы"""
+        self.current_mode = self.mode_var.get()
+        self.status_var.set(f"Режим изменен на: {self.modes[self.current_mode]}")
+    
+    def get_response_type(self, response):
+        """Определить тип ответа"""
+        response_lower = response.lower()
+        
+        positive_words = ["да", "бесспорно", "определённо", "уверен", "вероятнее", 
+                         "хорошие", "согласн", "можно", "стоит", "благоприят"]
+        negative_words = ["нет", "не думай", "сомнительно", "не очень", "отказ", "плох"]
+        neutral_words = ["спроси", "попробуй", "позже", "нельзя", "не ясно", "подумай", "может"]
+        
+        if any(word in response_lower for word in positive_words):
+            return "positive"
+        elif any(word in response_lower for word in negative_words):
+            return "negative"
+        elif any(word in response_lower for word in neutral_words):
+            return "neutral"
+        else:
+            return "mysterious"
+    
+    def get_answer(self):
+        """Получить ответ на вопрос"""
+        question = self.question_entry.get().strip()
+        
+        if not question:
+            messagebox.showwarning("Внимание", "Пожалуйста, введите вопрос!")
+            return
+        
+        # Визуальная обратная связь
+        self.ask_button.config(state=tk.DISABLED)
+        self.question_entry.config(state=tk.DISABLED)
+        self.status_var.set("🎱 Магический шар думает...")
+        self.root.update()
+        
+        # Выбор ответа в зависимости от режима
+        if self.current_mode == "standard":
+            response = random.choice(self.standard_responses)
+        elif self.current_mode == "funny":
+            response = random.choice(self.funny_responses)
+        elif self.current_mode == "poetic":
+            response = random.choice(self.poetic_responses)
+        elif self.current_mode == "mix":
+            all_responses = self.standard_responses + self.funny_responses + self.poetic_responses
+            response = random.choice(all_responses)
+        
+        # Определение типа ответа
+        response_type = self.get_response_type(response)
+        
+        # Цвета для разных типов ответов
+        colors = {
+            "positive": "#2ecc71",  # Зеленый
+            "negative": "#e74c3c",  # Красный
+            "neutral": "#f39c12",   # Оранжевый
+            "mysterious": "#9b59b6" # Фиолетовый
+        }
+        
+        # Анимация задержки
+        self.root.after(1000, lambda: self.display_answer(response, colors[response_type]))
+        
+        # Сохранение в историю
+        self.save_to_history(question, response, response_type)
+        
+        # Обновление истории в интерфейсе
+        self.update_history_display()
+    
+    def display_answer(self, response, color):
+        """Отображение ответа с анимацией"""
+        self.answer_text.config(state=tk.NORMAL)
+        self.answer_text.delete(1.0, tk.END)
+        self.answer_text.insert(1.0, response)
+        self.answer_text.config(fg=color)
+        self.answer_text.config(state=tk.DISABLED)
+        
+        # Возвращаем доступ к элементам
+        self.ask_button.config(state=tk.NORMAL)
+        self.question_entry.config(state=tk.NORMAL)
+        self.question_entry.delete(0, tk.END)
+        self.question_entry.focus()
+        
+        self.status_var.set("Готов к следующему вопросу!")
+    
+    def save_to_history(self, question, response, response_type):
+        """Сохранить вопрос и ответ в историю"""
+        entry = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "question": question,
+            "response": response,
+            "type": response_type,
+            "mode": self.current_mode
+        }
+        self.history.append(entry)
+        
+        # Сохраняем в файл (последние 50 записей)
+        if len(self.history) > 50:
+            self.history = self.history[-50:]
+        
+        self.save_history()
+    
+    def save_history(self):
+        """Сохранить историю в файл"""
+        try:
+            with open("magic_ball_history.json", "w", encoding="utf-8") as f:
+                json.dump(self.history, f, ensure_ascii=False, indent=2)
+        except:
+            pass
+    
+    def load_history(self):
+        """Загрузить историю из файла"""
+        try:
+            if os.path.exists("magic_ball_history.json"):
+                with open("magic_ball_history.json", "r", encoding="utf-8") as f:
+                    self.history = json.load(f)
+        except:
+            self.history = []
+    
+    def update_history_display(self):
+        """Обновить отображение истории"""
+        self.history_text.config(state=tk.NORMAL)
+        self.history_text.delete(1.0, tk.END)
+        
+        if not self.history:
+            self.history_text.insert(1.0, "История пуста. Задайте несколько вопросов!")
+        else:
+            # Показываем последние 10 записей
+            recent = self.history[-10:] if len(self.history) > 10 else self.history
+            
+            for entry in reversed(recent):
+                time_str = entry['timestamp'][11:16]  # Только время
+                question = entry['question']
+                
+                if len(question) > 30:
+                    question = question[:27] + "..."
+                
+                self.history_text.insert(1.0, 
+                    f"[{time_str}] {question}\n"
+                    f"    Ответ: {entry['response']}\n\n"
+                )
+        
+        self.history_text.config(state=tk.DISABLED)
+    
+    def show_history(self):
+        """Показать полную историю"""
+        if not self.history:
+            messagebox.showinfo("История", "История пуста. Задайте несколько вопросов!")
+            return
+        
+        history_window = tk.Toplevel(self.root)
+        history_window.title("📜 Полная история")
+        history_window.geometry("600x400")
+        history_window.configure(bg='#2c3e50')
+        
+        # Текстовое поле с историей
+        text_widget = scrolledtext.ScrolledText(
+            history_window,
+            font=("Arial", 10),
+            bg='#34495e',
+            fg='#ecf0f1',
+            wrap=tk.WORD
+        )
+        text_widget.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
+        
+        # Заполняем историю
+        for entry in reversed(self.history):
+            date_str = entry['timestamp'][:10]
+            time_str = entry['timestamp'][11:16]
+            question = entry['question']
+            
+            # Цвет в зависимости от типа ответа
+            colors = {
+                "positive": "#2ecc71",
+                "negative": "#e74c3c",
+                "neutral": "#f39c12",
+                "mysterious": "#9b59b6"
+            }
+            
+            text_widget.insert(tk.END, 
+                f"📅 {date_str} {time_str}\n"
+                f"❓ Вопрос: {question}\n"
+            )
+            
+            # Вставляем ответ с цветом
+            text_widget.insert(tk.END, f"🎱 Ответ: ")
+            text_widget.insert(tk.END, entry['response'] + "\n", f"color_{entry['type']}")
+            text_widget.insert(tk.END, f"🔧 Режим: {self.modes.get(entry['mode'], 'Неизвестно')}\n")
+            text_widget.insert(tk.END, "─" * 50 + "\n\n")
+        
+        # Настройка тегов для цветов
+        for resp_type, color in colors.items():
+            text_widget.tag_config(f"color_{resp_type}", foreground=color)
+        
+        text_widget.config(state=tk.DISABLED)
+    
+    def show_statistics(self):
+        """Показать статистику"""
+        if not self.history:
+            messagebox.showinfo("Статистика", "Нет данных для статистики")
+            return
+        
+        total = len(self.history)
+        
+        # Считаем типы ответов
+        types = {'positive': 0, 'negative': 0, 'neutral': 0, 'mysterious': 0}
+        for entry in self.history:
+            types[entry['type']] = types.get(entry['type'], 0) + 1
+        
+        # Создаем окно статистики
+        stats_window = tk.Toplevel(self.root)
+        stats_window.title("📊 Статистика")
+        stats_window.geometry("400x300")
+        stats_window.configure(bg='#2c3e50')
+        
+        # Фрейм для статистики
+        stats_frame = tk.Frame(stats_window, bg='#2c3e50')
+        stats_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+        
+        # Заголовок
+        tk.Label(
+            stats_frame,
+            text="📊 СТАТИСТИКА МАГИЧЕСКОГО ШАРА",
+            font=("Arial", 14, "bold"),
+            bg='#2c3e50',
+            fg='#3498db'
+        ).pack(pady=(0, 20))
+        
+        # Общая информация
+        info_frame = tk.Frame(stats_frame, bg='#2c3e50')
+        info_frame.pack(fill=tk.X, pady=5)
+        
+        tk.Label(
+            info_frame,
+            text=f"Всего вопросов: {total}",
+            font=("Arial", 11, "bold"),
+            bg='#2c3e50',
+            fg='#ecf0f1'
+        ).pack()
+        
+        # Статистика по типам
+        stats_data = [
+            ("Положительных", types['positive'], "#2ecc71"),
+            ("Отрицательных", types['negative'], "#e74c3c"),
+            ("Нейтральных", types['neutral'], "#f39c12"),
+            ("Загадочных", types['mysterious'], "#9b59b6")
+        ]
+        
+        for label, count, color in stats_data:
+            frame = tk.Frame(stats_frame, bg='#2c3e50')
+            frame.pack(fill=tk.X, pady=3)
+            
+            percentage = (count / total * 100) if total > 0 else 0
+            
+            tk.Label(
+                frame,
+                text=f"{label}:",
+                font=("Arial", 10),
+                bg='#2c3e50',
+                fg='#ecf0f1',
+                width=15,
+                anchor=tk.W
+            ).pack(side=tk.LEFT)
+            
+            tk.Label(
+                frame,
+                text=f"{count} ({percentage:.1f}%)",
+                font=("Arial", 10, "bold"),
+                bg='#2c3e50',
+                fg=color
+            ).pack(side=tk.LEFT)
+        
+        # Кнопка закрытия
+        tk.Button(
+            stats_window,
+            text="Закрыть",
+            command=stats_window.destroy,
+            bg='#34495e',
+            fg='#ecf0f1',
+            font=("Arial", 10),
+            padx=20,
+            pady=5
+        ).pack(pady=20)
+    
+    def clear_history(self):
+        """Очистить историю"""
+        if messagebox.askyesno("Очистка истории", "Вы уверены, что хотите очистить всю историю?"):
+            self.history = []
+            self.save_history()
+            self.update_history_display()
+            self.status_var.set("История очищена!")
+    
+    def show_about(self):
+        """Показать информацию о программе"""
+        about_text = (
+            "🎱 МАГИЧЕСКИЙ ШАР ПРЕДСКАЗАНИЙ\n\n"
+            "Версия: 2.0 (Графическая)\n\n"
+            "Возможности:\n"
+            "• 4 режима ответов\n"
+            "• Сохранение истории\n"
+            "• Подробная статистика\n"
+            "• Удобный графический интерфейс\n\n"
+            "© 2024 Магический Шар v2.0"
+        )
+        
+        messagebox.showinfo("О программе", about_text)
+
+def main():
+    root = tk.Tk()
+    app = MagicBallApp(root)
+    
+    # Обновляем отображение истории при запуске
+    app.update_history_display()
+    
+    # Центрируем окно
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f'{width}x{height}+{x}+{y}')
+    
+    # Запускаем главный цикл
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
